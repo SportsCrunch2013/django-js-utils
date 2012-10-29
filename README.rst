@@ -24,7 +24,7 @@ Installation and usage
 **********************
 1. Install the application from pip::
 
-    pip install django_js_utils
+    pip install -Ue git+https://github.com/jmagnusson/django-js-utils.git#egg=django-js-utils
 
 2. Add django_js_utils to your python path and add the django_js_utils application to your INSTALLED_APPS
 
