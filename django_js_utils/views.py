@@ -7,17 +7,26 @@ from django.core.urlresolvers import RegexURLPattern, RegexURLResolver
 from django.http import HttpResponse
 from django.utils.datastructures import SortedDict
 
+try:
+    from localeurl.utils import locale_url, strip_path
+except ImportError:
+    locale_url = lambda x, *args, **kwargs: x
+    strip_path = lambda x: ('', x)
+
 ALLOWED_NAMESPACES = getattr(settings, 'JS_UTILS_ALLOWED_NAMESPACES', None)
 
 
 def jsurls(request):
+    # Get locale_prefix if set by django-localeurl
+    locale_prefix, _path = strip_path(request.path)
 
     # Pattern for recognizing named parameters in urls
     RE_KWARG = re.compile(r"(\(\?P\<(.*?)\>.*?\))")
     # Pattern for recognizing unnamed url parameters
     RE_ARG = re.compile(r"(\(.*?\))")
 
-    def handle_url_module(js_patterns, module_name, prefix="", namespace=""):
+    def handle_url_module(js_patterns, module_name, prefix="", namespace="",
+                          locale_prefix=''):
         """
         Load the module and output all of the patterns
         Recurse on the included modules
@@ -53,7 +62,9 @@ def jsurls(request):
                         for el in args_matches:
                             # Replace by a empty parameter name
                             full_url = full_url.replace(el, "<>")
-                    js_patterns[pattern_name] = "/" + full_url
+                    # Add locale to path if django-localeurl is installed
+                    full_url = locale_url("/" + full_url, locale=locale_prefix)
+                    js_patterns[pattern_name] = full_url
             elif issubclass(pattern.__class__, RegexURLResolver):
                 if ALLOWED_NAMESPACES is None:
                     pass
@@ -63,10 +74,12 @@ def jsurls(request):
                 if pattern.urlconf_name:
                     handle_url_module(js_patterns, pattern.urlconf_name,
                                       prefix=pattern.regex.pattern,
-                                      namespace=pattern.namespace)
+                                      namespace=pattern.namespace,
+                                      locale_prefix=locale_prefix)
 
     js_patterns = SortedDict()
-    handle_url_module(js_patterns, settings.ROOT_URLCONF)
+    handle_url_module(js_patterns, settings.ROOT_URLCONF,
+                      locale_prefix=locale_prefix)
 
     from django.template.loader import get_template
 
